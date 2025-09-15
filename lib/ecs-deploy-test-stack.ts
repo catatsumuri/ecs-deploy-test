@@ -128,6 +128,7 @@ EOF
         subnetType: ec2.SubnetType.PUBLIC,  // パブリックサブネットに配置
       },
       serviceName: 'DeployTestService', // サービス名
+      minHealthyPercent: 100,           // デプロイ中も100%のタスクを維持（推奨設定）
     });
 
     // デプロイ後に出力される情報を定義
