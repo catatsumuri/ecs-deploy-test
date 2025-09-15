@@ -129,6 +129,9 @@ EOF
       },
       serviceName: 'DeployTestService', // サービス名
       minHealthyPercent: 100,           // デプロイ中も100%のタスクを維持（推奨設定）
+      circuitBreaker: {                 // サーキットブレイカー設定
+        rollback: true                  // 失敗時の自動ロールバックを有効化
+      },
     });
 
     // デプロイ後に出力される情報を定義
