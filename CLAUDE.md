@@ -14,9 +14,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### ビルドとコンパイル
 
 ```bash
-npm run build      # TypeScript を JavaScript にコンパイル
 npm run watch      # ファイル変更を監視して自動コンパイル
 ```
+
+**注意**: `npm run build` は通常不要です。CDKは `ts-node` を使用して直接TypeScriptファイルを実行するため、事前コンパイルは必要ありません。
 
 ### テスト
 
@@ -55,8 +56,8 @@ cdk                # CDK コマンドのエイリアス（package.json で定義
 
 2. **開発サイクル**:
    ```bash
-   npm run watch                    # 自動コンパイル開始
-   # lib/claude-cdk-stack.ts でリソース定義を編集
+   npm run watch                    # 自動コンパイル開始（オプション）
+   # lib/ でリソース定義を編集
    npm test                         # テストを実行
    npx cdk diff                     # 変更内容を確認
    npx cdk deploy                   # AWS にデプロイ
