@@ -14,7 +14,7 @@ export class EcsDeployTestStack extends cdk.Stack {
 
     // コンテキストからNginxイメージタグを取得（デフォルトは'1.27'）
     const imageTag = this.node.tryGetContext('imageTag') || '1.27';
-    
+
     // コンテナ起動時に実行されるデフォルトスクリプト
     const startupScript = `
       echo "Starting Nginx container..."
@@ -64,90 +64,94 @@ EOF
 
     // VPCの作成（パブリックサブネットのみ、プライベートサブネットは不要）
     const vpc = new ec2.Vpc(this, 'EcsVpc', {
-      maxAzs: 2,                    // 最大2つのアベイラビリティーゾーンを使用
-      natGateways: 0,               // NATゲートウェイは作成しない（コスト削減）
+      maxAzs: 2, // 最大2つのアベイラビリティーゾーンを使用
+      natGateways: 0, // NATゲートウェイは作成しない（コスト削減）
       subnetConfiguration: [
         {
-          cidrMask: 24,             // /24 サブネットマスク
-          name: 'public',           // サブネット名
-          subnetType: ec2.SubnetType.PUBLIC,  // パブリックサブネット
+          cidrMask: 24, // /24 サブネットマスク
+          name: 'public', // サブネット名
+          subnetType: ec2.SubnetType.PUBLIC, // パブリックサブネット
         },
       ],
     });
 
     // ECSクラスターの作成
     const cluster = new ecs.Cluster(this, 'DeployTestCluster', {
-      vpc,                                    // 上記で作成したVPCを使用
-      clusterName: 'DeployTestCluster',       // クラスター名
+      vpc, // 上記で作成したVPCを使用
+      clusterName: 'DeployTestCluster', // クラスター名
     });
 
     // Fargateタスク定義の作成
     const taskDefinition = new ecs.FargateTaskDefinition(this, 'TaskDef', {
-      memoryLimitMiB: 512,              // メモリ制限: 512MB
-      cpu: 256,                         // CPU制限: 256 CPU単位（0.25 vCPU）
+      memoryLimitMiB: 512, // メモリ制限: 512MB
+      cpu: 256, // CPU制限: 256 CPU単位（0.25 vCPU）
     });
 
     // タスク定義にNginxコンテナを追加
     const container = taskDefinition.addContainer('nginx', {
-      image: ecs.ContainerImage.fromRegistry(`public.ecr.aws/nginx/nginx:${imageTag}`),  // パブリックECRからNginxイメージを取得
-      memoryLimitMiB: 512,              // コンテナのメモリ制限
-      logging: ecs.LogDrivers.awsLogs({ // CloudWatch Logsでログ出力
-        streamPrefix: 'nginx',          // ログストリームのプレフィックス
+      image: ecs.ContainerImage.fromRegistry(
+        `public.ecr.aws/nginx/nginx:${imageTag}`
+      ), // パブリックECRからNginxイメージを取得
+      memoryLimitMiB: 512, // コンテナのメモリ制限
+      logging: ecs.LogDrivers.awsLogs({
+        // CloudWatch Logsでログ出力
+        streamPrefix: 'nginx', // ログストリームのプレフィックス
       }),
-      command: ['/bin/bash', '-c', startupScript],  // 起動時に実行するコマンド
+      command: ['/bin/bash', '-c', startupScript], // 起動時に実行するコマンド
     });
 
     // コンテナのポートマッピングを設定（HTTP用）
     container.addPortMappings({
-      containerPort: 80,                // コンテナ内のポート番号
-      protocol: ecs.Protocol.TCP,       // プロトコル（HTTP用にTCP）
+      containerPort: 80, // コンテナ内のポート番号
+      protocol: ecs.Protocol.TCP, // プロトコル（HTTP用にTCP）
     });
 
     // ECSサービス用のセキュリティグループを作成（直接アクセス用）
     const ecsSecurityGroup = new ec2.SecurityGroup(this, 'EcsSecurityGroup', {
-      vpc,                                        // 作成したVPCを指定
-      description: 'Security group for ECS service',  // セキュリティグループの説明
-      allowAllOutbound: true,                     // 全てのアウトバウンドトラフィックを許可
+      vpc, // 作成したVPCを指定
+      description: 'Security group for ECS service', // セキュリティグループの説明
+      allowAllOutbound: true, // 全てのアウトバウンドトラフィックを許可
     });
 
     // HTTPトラフィック（ポート80）を全てのIPアドレスから許可
     ecsSecurityGroup.addIngressRule(
-      ec2.Peer.anyIpv4(),               // 全てのIPv4アドレスから
-      ec2.Port.tcp(80),                 // TCPポート80（HTTP）
-      'Allow HTTP traffic from anywhere'  // ルールの説明
+      ec2.Peer.anyIpv4(), // 全てのIPv4アドレスから
+      ec2.Port.tcp(80), // TCPポート80（HTTP）
+      'Allow HTTP traffic from anywhere' // ルールの説明
     );
 
     // パブリックIPを持つFargateサービスの作成
     const service = new ecs.FargateService(this, 'DeployTestService', {
-      cluster,                          // 上記で作成したクラスターを指定
-      taskDefinition,                   // 上記で作成したタスク定義を指定
-      desiredCount: 1,                  // 実行するタスク数（1つ）
-      assignPublicIp: true,             // パブリックIPアドレスを割り当て
-      securityGroups: [ecsSecurityGroup],  // 上記で作成したセキュリティグループを適用
+      cluster, // 上記で作成したクラスターを指定
+      taskDefinition, // 上記で作成したタスク定義を指定
+      desiredCount: 1, // 実行するタスク数（1つ）
+      assignPublicIp: true, // パブリックIPアドレスを割り当て
+      securityGroups: [ecsSecurityGroup], // 上記で作成したセキュリティグループを適用
       vpcSubnets: {
-        subnetType: ec2.SubnetType.PUBLIC,  // パブリックサブネットに配置
+        subnetType: ec2.SubnetType.PUBLIC, // パブリックサブネットに配置
       },
       serviceName: 'DeployTestService', // サービス名
-      minHealthyPercent: 100,           // デプロイ中も100%のタスクを維持（推奨設定）
-      circuitBreaker: {                 // サーキットブレイカー設定
-        rollback: true                  // 失敗時の自動ロールバックを有効化
+      minHealthyPercent: 100, // デプロイ中も100%のタスクを維持（推奨設定）
+      circuitBreaker: {
+        // サーキットブレイカー設定
+        rollback: true, // 失敗時の自動ロールバックを有効化
       },
     });
 
     // デプロイ後に出力される情報を定義
     new cdk.CfnOutput(this, 'ServiceName', {
       value: service.serviceName,
-      description: 'ECS Service Name',        // ECSサービス名
+      description: 'ECS Service Name', // ECSサービス名
     });
 
     new cdk.CfnOutput(this, 'ClusterName', {
       value: cluster.clusterName,
-      description: 'ECS Cluster Name',        // ECSクラスター名
+      description: 'ECS Cluster Name', // ECSクラスター名
     });
 
     new cdk.CfnOutput(this, 'ImageTag', {
       value: imageTag,
-      description: 'Nginx Docker image tag used',  // 使用されたNginxイメージタグ
+      description: 'Nginx Docker image tag used', // 使用されたNginxイメージタグ
     });
   }
 }
